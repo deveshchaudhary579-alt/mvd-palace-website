@@ -1,0 +1,16 @@
+{
+  "name": "mvd-palace-website",
+  "version": "1.0.0",
+  "description": "MVD Palace luxury hotel and events website",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "start": "vite",
+    "build": "vite build",
+    "preview": "vite preview"
+  },
+  "devDependencies": {
+    "vite": "^7.1.0"
+  }
+}
