@@ -1,0 +1,12 @@
+-- MVD Palace core booking schema. Run in Supabase SQL editor; enable RLS after creating admin roles.
+create extension if not exists btree_gist;
+create type booking_status as enum ('pending','confirmed','cancelled','completed');
+create table rooms (id uuid primary key default gen_random_uuid(), slug text unique not null, room_number text unique, name text not null, price_per_night integer not null check (price_per_night > 0), capacity smallint not null check(capacity > 0), description text, amenities jsonb default '[]', active boolean default true, created_at timestamptz default now());
+create table bookings (id uuid primary key default gen_random_uuid(), reference text unique not null default ('MVD-'||to_char(now(),'YYYY')||'-'||upper(substr(md5(random()::text),1,6))), room_id uuid not null references rooms(id), guest_name text not null, email text not null, mobile text not null, guests smallint not null check(guests > 0), check_in date not null, check_out date not null, special_requests text, status booking_status not null default 'pending', created_at timestamptz default now(), check(check_out > check_in));
+-- The exclusion constraint is the final authority: overlapping half-open stays cannot coexist.
+alter table bookings add constraint no_overlapping_active_stays exclude using gist (room_id with =, daterange(check_in,check_out,'[)') with &&) where (status in ('confirmed','pending'));
+create table event_enquiries (id uuid primary key default gen_random_uuid(), reference text unique not null default ('MVD-EVENT-'||upper(substr(md5(random()::text),1,8))), event_type text not null, event_date date not null, expected_guests integer, rooms_required integer, customer_name text not null, mobile text not null, email text, requirements text, status text default 'new', admin_notes text, created_at timestamptz default now());
+create table contact_messages (id uuid primary key default gen_random_uuid(), name text not null, phone text not null, email text, subject text, message text not null, created_at timestamptz default now());
+alter table rooms enable row level security; alter table bookings enable row level security; alter table event_enquiries enable row level security; alter table contact_messages enable row level security;
+create policy "public reads active rooms" on rooms for select using (active=true);
+-- Route booking inserts through a server-side Supabase Edge Function/service that validates input; do not grant direct public booking inserts.
